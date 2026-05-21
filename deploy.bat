@@ -1,5 +1,8 @@
 if exist OUTPUT goto OUTPUT_EXISTS
 
+cmake -P ..\cmake\generate_milton_iss.cmake
+if errorlevel 1 exit /b 1
+
 set builddir=build
 set sdlbindir=third_party\bin
 

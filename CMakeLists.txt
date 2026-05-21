@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.1)
 project(Milton)
 
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/MiltonVersion.cmake)
+milton_read_version_from_header(${CMAKE_CURRENT_LIST_DIR}/src/milton_configuration.h)
+message(STATUS "Milton version: ${MILTON_VERSION}")
+
+configure_file(
+  ${CMAKE_CURRENT_LIST_DIR}/Milton.iss.in
+  ${CMAKE_CURRENT_LIST_DIR}/Milton.iss
+  @ONLY)
+
 if(APPLE AND NOT DEFINED CMAKE_OSX_ARCHITECTURES)
   set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build universal binaries by default")
 endif()
@@ -91,10 +100,20 @@ if(WIN32)
 endif()
 
 if(APPLE)
+  set(MILTON_MACOS_ICON "${CMAKE_CURRENT_LIST_DIR}/milton_icon.icns")
+
   # Make bundled builds load runtime files from Contents/Resources.
-  target_sources(Milton PRIVATE ${MILTON_RUNTIME_ASSETS})
-  set_source_files_properties(${MILTON_RUNTIME_ASSETS} PROPERTIES
+  target_sources(Milton PRIVATE ${MILTON_RUNTIME_ASSETS} ${MILTON_MACOS_ICON})
+  set_source_files_properties(${MILTON_RUNTIME_ASSETS} ${MILTON_MACOS_ICON} PROPERTIES
     MACOSX_PACKAGE_LOCATION Resources
+  )
+
+  set_target_properties(Milton PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_NAME "Milton"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.serge-rgb.milton"
+    MACOSX_BUNDLE_ICON_FILE milton_icon.icns
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${MILTON_VERSION}"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${MILTON_VERSION}"
   )
 endif()
 
