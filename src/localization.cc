@@ -117,6 +117,8 @@ init_localization()
         EN(TXT_size_relative_to_canvas, "Size relative to canvas");
         EN(TXT_grid_columns, "Grid Columns");
         EN(TXT_grid_rows, "Grid Rows");
+        EN(TXT_canvas_theme_light, "Use Light Canvas Theme");
+        EN(TXT_canvas_theme_dark, "Use Dark Canvas Theme");
 
         EN(TXT_Action_DECREASE_BRUSH_SIZE, "Decrease brush size");
         EN(TXT_Action_INCREASE_BRUSH_SIZE, "Increase brush size");
@@ -186,6 +188,8 @@ init_localization()
         ES(TXT_view, "Vista");
         ES(TXT_toggle_gui_visibility, "Mostrar/Ocultar Interfaz");
         ES(TXT_layers, "Capas");
+        ES(TXT_canvas_theme_light, "Usar tema claro de lienzo");
+        ES(TXT_canvas_theme_dark, "Usar tema oscuro de lienzo");
     }
     // Non-Mac:
     //  C(x) => [Ctrl+x]

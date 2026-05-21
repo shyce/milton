@@ -131,6 +131,7 @@ struct RenderBackend
 
     v3f background_color;
     i32 scale;  // zoom
+    b32 ui_dark_theme;
 
     // See MAX_DEPTH_VALUE
     i32 stroke_z;
@@ -796,6 +797,12 @@ void
 gpu_update_background(RenderBackend* r, v3f background_color)
 {
     r->background_color = background_color;
+}
+
+void
+gpu_set_ui_theme_dark(RenderBackend* r, b32 dark_theme)
+{
+    r->ui_dark_theme = dark_theme;
 }
 
 void
@@ -1659,6 +1666,7 @@ gpu_render(RenderBackend* r,  i32 view_x, i32 view_y, i32 view_width, i32 view_h
     if ( r->flags & RenderBackendFlags_GUI_VISIBLE ) {
         // Render picker
         gl::use_program(r->picker_program);
+        gl::set_uniform_i(r->picker_program, "u_theme_dark", r->ui_dark_theme ? 1 : 0);
         GLint loc = glGetAttribLocation(r->picker_program, "a_position");
 
         if ( loc >= 0 ) {

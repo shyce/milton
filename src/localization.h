@@ -100,6 +100,8 @@ enum Texts
     TXT_size_relative_to_canvas,
     TXT_grid_columns,
     TXT_grid_rows,
+    TXT_canvas_theme_light,
+    TXT_canvas_theme_dark,
 
     // Actions
     TXT_Action_FIRST,

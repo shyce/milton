@@ -15,20 +15,115 @@
 #define NUM_BUTTONS 5
 #define BOUNDS_RADIUS_PX 80
 
+static float
+imgui_dpi_scale(PlatformState* platform)
+{
+    float dpi = (platform && platform->ui_scale > 0.0f) ? platform->ui_scale : 1.0f;
+    return dpi;
+}
+
+static float
+imgui_scale_from_gui(PlatformState* platform, MiltonGui* gui)
+{
+    // gui->scale is in backing pixels. ImGui window coordinates are in logical points.
+    return gui->scale / imgui_dpi_scale(platform);
+}
+
+static float
+imgui_points_from_pixels(PlatformState* platform, float pixels)
+{
+    return pixels / imgui_dpi_scale(platform);
+}
+
+static v3f
+canvas_theme_light()
+{
+    return v3f{0.96f, 0.97f, 0.985f};
+}
+
+static v3f
+canvas_theme_dark()
+{
+    // Deliberately not pure black: deep, neutral blue-gray.
+    return v3f{0.09f, 0.11f, 0.14f};
+}
+
+static void
+apply_canvas_theme(Milton* milton, MiltonInput* input, v3f color)
+{
+    milton_set_background_color(milton, color);
+    milton->settings->background_color = color;
+    input->flags |= (i32)MiltonInputFlags_FULL_REFRESH;
+}
+
+static b32
+should_use_dark_ui(v3f background_color)
+{
+    const float luminance = 0.2126f * background_color.r
+                          + 0.7152f * background_color.g
+                          + 0.0722f * background_color.b;
+    return luminance < 0.45f;
+}
+
+static void
+normalize_and_clamp_window_rect(PlatformState* platform,
+                                float ui_scale,
+                                float* inout_left,
+                                float* inout_top,
+                                float* inout_width,
+                                float* inout_height)
+{
+    if (!platform || !inout_left || !inout_top || !inout_width || !inout_height) {
+        return;
+    }
+
+    float display_w = imgui_points_from_pixels(platform, (float)platform->width);
+    float display_h = imgui_points_from_pixels(platform, (float)platform->height);
+    float dpi = imgui_dpi_scale(platform);
+
+    float left = *inout_left;
+    float top = *inout_top;
+    float width = *inout_width;
+    float height = *inout_height;
+
+    // Backwards-compatibility with previously stored pixel-space preferences.
+    if (dpi > 1.0f) {
+        if (left > display_w && (left / dpi) <= display_w) { left /= dpi; }
+        if (top > display_h && (top / dpi) <= display_h) { top /= dpi; }
+        if (width > display_w && (width / dpi) <= display_w) { width /= dpi; }
+        if (height > display_h && (height / dpi) <= display_h) { height /= dpi; }
+    }
+
+    const float min_w = max(200.0f * ui_scale, 120.0f);
+    const float min_h = max(120.0f * ui_scale, 80.0f);
+
+    width = clamp(width, min_w, max(display_w, min_w));
+    height = clamp(height, min_h, max(display_h, min_h));
+
+    left = clamp(left, 0.0f, max(0.0f, display_w - width));
+    top = clamp(top, 0.0f, max(0.0f, display_h - height));
+
+    *inout_left = left;
+    *inout_top = top;
+    *inout_width = width;
+    *inout_height = height;
+}
+
 // If reset_gui is true, the default window position and size will be set.
 void
 gui_layer_window(MiltonInput* input, PlatformState* platform, Milton* milton, f32 brush_window_height, PlatformSettings* prefs, b32 reset_gui)
 {
-    float ui_scale = milton->gui->scale;
+    float ui_scale = imgui_scale_from_gui(platform, milton->gui);
     MiltonGui* gui = milton->gui;
     const Rect pbounds = get_bounds_for_picker_and_colors(&gui->picker);
+    const float picker_bottom = imgui_points_from_pixels(platform, (float)pbounds.bottom);
     CanvasState* canvas = milton->canvas;
 
     // Layer window
 
     // Use default size on first program start on this computer.
     f32 left   = ui_scale*10;
-    f32 top    = ui_scale*20 + (float)pbounds.bottom + brush_window_height;
+    f32 top    = ui_scale*20 + picker_bottom + brush_window_height;
     f32 width  = ui_scale*300;
     f32 height = ui_scale*230;
     if ( reset_gui ) {
@@ -42,10 +137,11 @@ gui_layer_window(MiltonInput* input, PlatformState* platform, Milton* milton, f3
             top    = prefs->layer_window_top;
             width  = prefs->layer_window_width;
             height = prefs->layer_window_height;
+            normalize_and_clamp_window_rect(platform, ui_scale, &left, &top, &width, &height);
         }
 
-        ImGui::SetNextWindowPos(ImVec2(left, top), ImGuiSetCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiSetCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(left, top), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_FirstUseEver);
     }
 
     if ( ImGui::Begin(loc(TXT_layers)) ) {
@@ -294,12 +390,14 @@ gui_brush_window(MiltonInput* input, PlatformState* platform, Milton* milton, Pl
     MiltonGui* gui = milton->gui;
 
     const Rect pbounds = get_bounds_for_picker_and_colors(&gui->picker);
+    const float picker_bottom = imgui_points_from_pixels(platform, (float)pbounds.bottom);
+    const float ui_scale = imgui_scale_from_gui(platform, gui);
 
     // Use default size on first program start on this computer.
-    f32 left = milton->gui->scale * 10;
-    f32 top = milton->gui->scale * 10 + (float)pbounds.bottom;
-    f32 width = milton->gui->scale * 300;
-    f32 height = milton->gui->scale * 230;
+    f32 left = ui_scale * 10;
+    f32 top = ui_scale * 10 + picker_bottom;
+    f32 width = ui_scale * 300;
+    f32 height = ui_scale * 230;
     if ( reset_gui ) {
         ImGui::SetNextWindowPos(ImVec2(left, top));
         ImGui::SetNextWindowSize({width, height});
@@ -311,10 +409,11 @@ gui_brush_window(MiltonInput* input, PlatformState* platform, Milton* milton, Pl
             top =    prefs->brush_window_top;
             width =  prefs->brush_window_width;
             height = prefs->brush_window_height;
+            normalize_and_clamp_window_rect(platform, ui_scale, &left, &top, &width, &height);
         }
 
-        ImGui::SetNextWindowPos(ImVec2(left, top), ImGuiSetCond_FirstUseEver);
-        ImGui::SetNextWindowSize({width, height}, ImGuiSetCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(left, top), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize({width, height}, ImGuiCond_FirstUseEver);
     }
 
     // Brush Window
@@ -546,6 +645,12 @@ gui_menu(MiltonInput* input, PlatformState* platform, Milton* milton, b32& show_
                     }
                     ImGui::EndMenu();
                 }
+                if ( ImGui::MenuItem(loc(TXT_canvas_theme_light)) ) {
+                    apply_canvas_theme(milton, input, canvas_theme_light());
+                }
+                if ( ImGui::MenuItem(loc(TXT_canvas_theme_dark)) ) {
+                    apply_canvas_theme(milton, input, canvas_theme_dark());
+                }
                 if ( ImGui::MenuItem(loc(TXT_zoom_in)) ) {
                     input->scale++;
                     milton_set_zoom_at_screen_center(milton);
@@ -693,21 +798,34 @@ milton_imgui_tick(MiltonInput* input, PlatformState* platform,  Milton* milton, 
 
     int color_stack = 0;
 
-    static auto color_window_background = ImVec4{.929f, .949f, .957f, 1};
-    //static auto color_title_bg        = ImVec4{.957f,.353f, .286f,1};
-    static auto color_title_bg          = color_window_background;
-    static auto color_title_fg          = ImVec4{151/255.f, 184/255.f, 210/255.f, 1};
+    const b32 use_dark_ui = should_use_dark_ui(milton->view->background_color);
+    gpu_set_ui_theme_dark(milton->renderer, use_dark_ui);
 
-    static auto color_buttons         = ImVec4{.686f, .796f, 1.0f, 1};
-    static auto color_buttons_active  = ImVec4{.886f, .796f, 1.0f, 1};
-    static auto color_buttons_hovered = ImVec4{.706f, .816f, 1.0f, 1};
+    ImVec4 color_window_background = use_dark_ui ? ImVec4{0.14f, 0.16f, 0.20f, 0.98f}
+                                                 : ImVec4{0.929f, 0.949f, 0.957f, 1.0f};
+    ImVec4 color_title_bg = use_dark_ui ? ImVec4{0.18f, 0.22f, 0.28f, 1.0f}
+                                         : color_window_background;
+    ImVec4 color_title_fg = use_dark_ui ? ImVec4{0.33f, 0.41f, 0.56f, 1.0f}
+                                         : ImVec4{151/255.f, 184/255.f, 210/255.f, 1};
 
-    static auto color_menu_bg        = ImVec4{.784f, .392f, .784f, 1};
-    static auto color_text           = ImVec4{.2f,.2f,.2f,1};
-    static auto color_slider         = ImVec4{ 148/255.f, 182/255.f, 182/255.f,1};
-    static auto frame_background     = ImVec4{ 0.862745f, 0.862745f, 0.862745f,1};
-    static auto color_text_selected  = ImVec4{ 0.509804f, 0.627451f, 0.823529f,1};
-    static auto color_header_hovered = color_buttons;
+    ImVec4 color_buttons = use_dark_ui ? ImVec4{0.27f, 0.37f, 0.54f, 1.0f}
+                                        : ImVec4{0.686f, 0.796f, 1.0f, 1.0f};
+    ImVec4 color_buttons_active = use_dark_ui ? ImVec4{0.35f, 0.49f, 0.70f, 1.0f}
+                                               : ImVec4{0.886f, 0.796f, 1.0f, 1.0f};
+    ImVec4 color_buttons_hovered = use_dark_ui ? ImVec4{0.31f, 0.44f, 0.64f, 1.0f}
+                                                : ImVec4{0.706f, 0.816f, 1.0f, 1.0f};
+
+    ImVec4 color_menu_bg = use_dark_ui ? ImVec4{0.18f, 0.22f, 0.28f, 1.0f}
+                                        : ImVec4{0.784f, 0.392f, 0.784f, 1.0f};
+    ImVec4 color_text = use_dark_ui ? ImVec4{0.89f, 0.92f, 0.97f, 1.0f}
+                                     : ImVec4{0.2f, 0.2f, 0.2f, 1.0f};
+    ImVec4 color_slider = use_dark_ui ? ImVec4{0.42f, 0.56f, 0.68f, 1.0f}
+                                       : ImVec4{148/255.f, 182/255.f, 182/255.f, 1.0f};
+    ImVec4 frame_background = use_dark_ui ? ImVec4{0.21f, 0.25f, 0.32f, 1.0f}
+                                           : ImVec4{0.862745f, 0.862745f, 0.862745f, 1.0f};
+    ImVec4 color_text_selected = use_dark_ui ? ImVec4{0.35f, 0.49f, 0.70f, 0.8f}
+                                             : ImVec4{0.509804f, 0.627451f, 0.823529f, 1.0f};
+    ImVec4 color_header_hovered = color_buttons;
 
     // Helper Imgui code to select color scheme
 #if 0
@@ -766,7 +884,7 @@ milton_imgui_tick(MiltonInput* input, PlatformState* platform,  Milton* milton, 
 
     gui_menu(input, platform, milton, show_settings, &reset_gui);
 
-    float ui_scale = milton->gui->scale;
+    float ui_scale = imgui_scale_from_gui(platform, milton->gui);
 
     // GUI Windows ----
 
@@ -782,7 +900,7 @@ milton_imgui_tick(MiltonInput* input, PlatformState* platform,  Milton* milton, 
         // Settings window
         if ( show_settings ) {
             ImGui::SetNextWindowSize(ImVec2(ui_scale*400, ui_scale*400),
-                                     ImGuiSetCond_FirstUseEver);
+                                     ImGuiCond_FirstUseEver);
             if ( ImGui::Begin(loc(TXT_settings)) ) {
                 if (ImGui::Button(loc(TXT_ok))) {
                     milton_settings_save(milton->settings);
@@ -807,6 +925,14 @@ milton_imgui_tick(MiltonInput* input, PlatformState* platform,  Milton* milton, 
 
                 if ( ImGui::Button(loc(TXT_set_current_background_color_as_default)) ) {
                     milton->settings->background_color = milton->view->background_color;
+                }
+
+                if ( ImGui::Button(loc(TXT_canvas_theme_light)) ) {
+                    apply_canvas_theme(milton, input, canvas_theme_light());
+                }
+                ImGui::SameLine();
+                if ( ImGui::Button(loc(TXT_canvas_theme_dark)) ) {
+                    apply_canvas_theme(milton, input, canvas_theme_dark());
                 }
 
                 const float peek_range = 20;
@@ -859,10 +985,10 @@ milton_imgui_tick(MiltonInput* input, PlatformState* platform,  Milton* milton, 
         if ( milton->current_mode == MiltonMode::HISTORY ) {
             {
                 Rect pb = picker_get_bounds(&gui->picker);
-                auto width = 20 + pb.right - pb.left;
-                ImGui::SetNextWindowPos(ImVec2(width, 30), ImGuiSetCond_FirstUseEver);
+                auto width = imgui_points_from_pixels(platform, (float)(20 + pb.right - pb.left));
+                ImGui::SetNextWindowPos(ImVec2(width, 30), ImGuiCond_FirstUseEver);
             }
-            ImGui::SetNextWindowSize(ImVec2(ui_scale*500, ui_scale*100), ImGuiSetCond_FirstUseEver);
+            ImGui::SetNextWindowSize(ImVec2(ui_scale*500, ui_scale*100), ImGuiCond_FirstUseEver);
             if ( ImGui::Begin("History Slider") ) {
                 ImGui::SliderInt("History", &gui->history, 0,
                                  layer::count_strokes(milton->canvas->root_layer));
@@ -876,8 +1002,8 @@ milton_imgui_tick(MiltonInput* input, PlatformState* platform,  Milton* milton, 
         bool opened = true;
         b32 reset = false;
 
-        ImGui::SetNextWindowPos(ImVec2(100, 30), ImGuiSetCond_FirstUseEver);
-        ImGui::SetNextWindowSize({ui_scale*350, ui_scale*235}, ImGuiSetCond_FirstUseEver);  // We don't want to set it *every* time, the user might have preferences
+        ImGui::SetNextWindowPos(ImVec2(100, 30), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize({ui_scale*350, ui_scale*235}, ImGuiCond_FirstUseEver);  // We don't want to set it *every* time, the user might have preferences
 
         // Export window
         if ( ImGui::Begin(loc(TXT_export_DOTS), &opened, ImGuiWindowFlags_NoCollapse) ) {
@@ -955,8 +1081,8 @@ milton_imgui_tick(MiltonInput* input, PlatformState* platform,  Milton* milton, 
     } // exporting
 
 #if MILTON_ENABLE_PROFILING
-    ImGui::SetNextWindowPos(ImVec2(ui_scale*300, ui_scale*205), ImGuiSetCond_FirstUseEver);
-    ImGui::SetNextWindowSize({ui_scale*350, ui_scale*285}, ImGuiSetCond_FirstUseEver);  // We don't want to set it *every* time, the user might have preferences
+    ImGui::SetNextWindowPos(ImVec2(ui_scale*300, ui_scale*205), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize({ui_scale*350, ui_scale*285}, ImGuiCond_FirstUseEver);  // We don't want to set it *every* time, the user might have preferences
     if ( milton->viz_window_visible ) {
         bool opened = true;
         if ( ImGui::Begin("Debug Data ([BACKQUOTE] to toggle)", &opened, ImGuiWindowFlags_NoCollapse) ) {
