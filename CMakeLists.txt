@@ -1,6 +1,19 @@
 cmake_minimum_required(VERSION 3.1)
 project(Milton)
 
+if(APPLE AND NOT DEFINED CMAKE_OSX_ARCHITECTURES)
+  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build universal binaries by default")
+endif()
+
+if(APPLE)
+  enable_language(OBJCXX)
+  set(CMAKE_C_STANDARD 99)
+  set(CMAKE_C_STANDARD_REQUIRED ON)
+  # SDL 2.0.8 enables this warning-as-error, which breaks modern AppleClang
+  # Objective-C sources in vendored SDL.
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=declaration-after-statement")
+endif()
+
 if(WIN32)
   set(DIRECTX 0)
 endif()
@@ -10,7 +23,7 @@ add_executable(shadergen
   src/shadergen.cc
 )
 
-set(SDL2DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL2-2.0.8)
+set(SDL3DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL3-3.4.4)
 
 FILE (GLOB ShaderSources src/*.glsl third_party/*.glsl)
 
@@ -62,7 +75,7 @@ if(UNIX)
     #-Werror
     )
   if (APPLE)
-      set(UnixCFlags "${UnixCFlags}" -ObjC++)
+      set_source_files_properties(src/unity.cc PROPERTIES LANGUAGE OBJCXX)
   endif()
 
   target_compile_options(shadergen PRIVATE
@@ -70,6 +83,28 @@ if(UNIX)
   target_compile_options(Milton PRIVATE
     ${UnixCFlags})
 endif()
+
+set(MILTON_RUNTIME_ASSETS
+  ${CMAKE_CURRENT_LIST_DIR}/third_party/Carlito.ttf
+  ${CMAKE_CURRENT_LIST_DIR}/third_party/Carlito.LICENSE
+)
+
+if(WIN32)
+  list(APPEND MILTON_RUNTIME_ASSETS ${CMAKE_CURRENT_LIST_DIR}/milton_icon.ico)
+endif()
+
+if(APPLE)
+  # Make bundled builds load runtime files from Contents/Resources.
+  target_sources(Milton PRIVATE ${MILTON_RUNTIME_ASSETS})
+  set_source_files_properties(${MILTON_RUNTIME_ASSETS} PROPERTIES
+    MACOSX_PACKAGE_LOCATION Resources
+  )
+endif()
+
+set(SDL_SHARED OFF CACHE BOOL "Build SDL shared library" FORCE)
+set(SDL_STATIC ON CACHE BOOL "Build SDL static library" FORCE)
+set(SDL_TEST_LIBRARY OFF CACHE BOOL "Build SDL test library" FORCE)
+add_subdirectory(${SDL3DIR})
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 
@@ -98,7 +133,6 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   target_include_directories(Milton PRIVATE
     ${GTK2_INCLUDE_DIRS}
     ${X11_INCLUDE_DIR}
-    ${SDL2DIR}/build/linux64/include/SDL2
     ${OPENGL_INCLUDE_DIR}
   )
 
@@ -107,15 +141,13 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${X11_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${XINPUT_LIBRARY}
-    ${SDL2DIR}/build/linux64/lib/libSDL2maind.a
-    ${SDL2DIR}/build/linux64/lib/libSDL2d.a
+    SDL3::SDL3
     ${CMAKE_THREAD_LIBS_INIT}
     ${CMAKE_DL_LIBS}
     )
 
 else()
-  add_subdirectory(${SDL2DIR})
-  target_link_libraries(Milton SDL2-static)
+  target_link_libraries(Milton SDL3::SDL3)
 endif()
 
 if(APPLE)
@@ -127,15 +159,13 @@ endif()
 
 if(WIN32 OR APPLE)
   target_include_directories(Milton PRIVATE
-    ${SDL2DIR}/include
+    ${SDL3DIR}/include
   )
 endif()
 
 add_custom_command(TARGET Milton POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy
-    ${CMAKE_CURRENT_LIST_DIR}/milton_icon.ico
-    ${CMAKE_CURRENT_LIST_DIR}/third_party/Carlito.ttf
-    ${CMAKE_CURRENT_LIST_DIR}/third_party/Carlito.LICENSE
+    ${MILTON_RUNTIME_ASSETS}
     $<TARGET_FILE_DIR:Milton>
 )
 

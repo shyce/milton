@@ -2,7 +2,7 @@
 *.mlt
 
 # Visual Studio crap
-third_party/SDL2-*/VisualC
+third_party/SDL3-*/VisualC
 *.vcxproj.user
 *.sdf
 *.opensdf
@@ -29,19 +29,19 @@ VS2015/Milton/x86
 *.sleepy
 
 # SDL build
-third_party/SDL2-*/Makefile
-third_party/SDL2-*/Makefile.rules
-third_party/SDL2-*/config.log
-third_party/SDL2-*/config.status
-third_party/SDL2-*/libtool
-third_party/SDL2-*/sdl2-config
-third_party/SDL2-*/sdl2.pc
-third_party/SDL2-*/CMakeFiles
-third_party/SDL2-*/*.vcxproj
-third_party/SDL2-*/*.filters
-third_party/SDL2-*/*.cmake
-third_party/SDL2-*/CMakeCache.txt
-third_party/SDL2-*/*/Debug/*
+third_party/SDL3-*/Makefile
+third_party/SDL3-*/Makefile.rules
+third_party/SDL3-*/config.log
+third_party/SDL3-*/config.status
+third_party/SDL3-*/libtool
+third_party/SDL3-*/sdl3-config
+third_party/SDL3-*/sdl3.pc
+third_party/SDL3-*/CMakeFiles
+third_party/SDL3-*/*.vcxproj
+third_party/SDL3-*/*.filters
+third_party/SDL3-*/*.cmake
+third_party/SDL3-*/CMakeCache.txt
+third_party/SDL3-*/*/Debug/*
 
 
 # build dir

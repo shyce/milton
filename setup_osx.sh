@@ -9,7 +9,7 @@ mkdir build
 fi
 
 cd build
-cmake ../SDL2-2.0.8
+cmake ../SDL3-3.4.4
 make -j
 cd ../..
 
