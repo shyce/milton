@@ -183,45 +183,89 @@ shortcut_handle_key(Milton* milton, PlatformState* platform, SDL_Event* event, M
     }
 }
 
+struct PanHardwareState
+{
+    b32 space_down;
+    b32 mouse_left_down;
+    b32 mouse_middle_down;
+    b32 mouse_right_down;
+    b32 pan_button_down;      // middle or right
+    b32 any_mouse_down;
+    b32 pan_gesture_active;   // middle/right OR (left + space)
+};
+
+static PanHardwareState
+query_pan_hardware_state()
+{
+    PanHardwareState state = {};
+    state.space_down = SDL_GetKeyboardState(NULL)[SDL_SCANCODE_SPACE];
+
+    float mouse_x = 0.0f;
+    float mouse_y = 0.0f;
+    SDL_MouseButtonFlags buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
+    (void)mouse_x;
+    (void)mouse_y;
+
+    state.mouse_left_down = (buttons & SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) != 0;
+    state.mouse_middle_down = (buttons & SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE)) != 0;
+    state.mouse_right_down = (buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT)) != 0;
+
+    state.pan_button_down = state.mouse_middle_down || state.mouse_right_down;
+    state.any_mouse_down = state.mouse_left_down || state.pan_button_down;
+    state.pan_gesture_active = state.pan_button_down || (state.mouse_left_down && state.space_down);
+
+    return state;
+}
+
+static void
+begin_pan(PlatformState* platform)
+{
+    platform->is_panning = true;
+    platform->pan_start = VEC2L(platform->pointer);
+    platform->pan_point = platform->pan_start;  // Avoid large initial pan delta.
+}
+
 void
 panning_update(PlatformState* platform)
 {
-    auto reset_pan_start = [platform]() {
-        platform->pan_start = VEC2L(platform->pointer);
-        platform->pan_point = platform->pan_start;  // No huge pan_delta at beginning of pan.
-    };
+    // SDL3-style: derive pan state from live hardware state each frame.
+    // This avoids sticky pan/cursor states caused by missed/reordered events.
+    const PanHardwareState hw = query_pan_hardware_state();
+    platform->is_space_down = hw.space_down;
+    platform->is_pan_button_down = hw.pan_button_down;
 
     platform->was_panning = platform->is_panning;
 
     // Panning from GUI menu, waiting for input
     if ( platform->waiting_for_pan_input ) {
-        if ( platform->is_pointer_down ) {
+        if ( hw.any_mouse_down ) {
             platform->waiting_for_pan_input = false;
-            platform->is_panning = true;
-            reset_pan_start();
+            begin_pan(platform);
         }
-        // Space cancels waiting
-        if ( platform->is_space_down ) {
+        // Space key acts as an immediate cancel for menu-armed pan.
+        else if ( hw.space_down ) {
             platform->waiting_for_pan_input = false;
+            platform->is_panning = false;
         }
     }
     else {
-        if ( platform->is_panning ) {
-            if ( (!platform->is_pointer_down && !platform->is_space_down)
-                 || !platform->is_pointer_down ) {
-                platform->is_panning = false;
-            }
-            else {
+        if ( hw.pan_gesture_active ) {
+            if ( !platform->is_panning ) {
+                begin_pan(platform);
+            } else {
                 platform->pan_point = VEC2L(platform->pointer);
             }
         }
         else {
-            if ( (platform->is_space_down && platform->is_pointer_down)
-                 || platform->is_middle_button_down ) {
-                platform->is_panning = true;
-                reset_pan_start();
-            }
+            platform->is_panning = false;
         }
+    }
+
+    // Explicitly reset cursor shape when panning ends. Even when gesture flags
+    // are cleared, macOS can keep showing the last cursor shape if no new shape
+    // is pushed after the resize cursor was active.
+    if ( platform->was_panning && !platform->is_panning && !platform->waiting_for_pan_input ) {
+        SDL_SetCursor(platform->cursor_default);
     }
 }
 
@@ -256,8 +300,7 @@ sdl_event_loop(Milton* milton, PlatformState* platform)
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
                 if (   (event.button.button == SDL_BUTTON_LEFT && ( EasyTab == NULL || !EasyTab->PenInProximity))
                      || event.button.button == SDL_BUTTON_MIDDLE
-                     // Ignoring right click events for now
-                     /*|| event.button.button == SDL_BUTTON_RIGHT*/ ) {
+                     || event.button.button == SDL_BUTTON_RIGHT ) {
 
                     if ( ImGui::GetIO().WantCaptureMouse ) {
                         platform->force_next_frame = true;
@@ -269,18 +312,30 @@ sdl_event_loop(Milton* milton, PlatformState* platform)
 
                         v2i point = v2i{(int)long_point.x, (int)long_point.y};
 
-                        if ( !platform->is_panning && point.x >= 0 && point.y > 0 ) {
-                            milton_input.click = point;
-
+                        if ( point.x >= 0 && point.y > 0 ) {
                             platform->is_pointer_down = true;
                             platform->pointer = point;
-                            platform->is_middle_button_down = (event.button.button == SDL_BUTTON_MIDDLE);
 
-                            if ( platform->num_point_results < MAX_INPUT_BUFFER_ELEMS ) {
-                                milton_input.points[platform->num_point_results++] = VEC2L(point);
-                            }
-                            if ( platform->num_pressure_results < MAX_INPUT_BUFFER_ELEMS ) {
-                                milton_input.pressures[platform->num_pressure_results++] = NO_PRESSURE_INFO;
+                            // Treat middle/right drag as mouse-only pan input.
+                            platform->is_pan_button_down =
+                                (event.button.button == SDL_BUTTON_MIDDLE)
+                                || (event.button.button == SDL_BUTTON_RIGHT);
+
+                            const PanHardwareState hw = query_pan_hardware_state();
+                            const b32 should_pan_on_mouse_down =
+                                platform->waiting_for_pan_input || hw.space_down || platform->is_pan_button_down;
+
+                            if ( should_pan_on_mouse_down ) {
+                                platform->waiting_for_pan_input = false;
+                                begin_pan(platform);
+                            } else {
+                                milton_input.click = point;
+                                if ( platform->num_point_results < MAX_INPUT_BUFFER_ELEMS ) {
+                                    milton_input.points[platform->num_point_results++] = VEC2L(point);
+                                }
+                                if ( platform->num_pressure_results < MAX_INPUT_BUFFER_ELEMS ) {
+                                    milton_input.pressures[platform->num_pressure_results++] = NO_PRESSURE_INFO;
+                                }
                             }
                         }
                     }
@@ -290,8 +345,9 @@ sdl_event_loop(Milton* milton, PlatformState* platform)
                 if ( event.button.button == SDL_BUTTON_LEFT
                      || event.button.button == SDL_BUTTON_MIDDLE
                      || event.button.button == SDL_BUTTON_RIGHT ) {
-                    if ( event.button.button == SDL_BUTTON_MIDDLE ) {
-                        platform->is_middle_button_down = false;
+                    if ( event.button.button == SDL_BUTTON_MIDDLE
+                         || event.button.button == SDL_BUTTON_RIGHT ) {
+                        platform->is_pan_button_down = false;
                     }
                     if ( ImGui::GetIO().WantCaptureMouse ) {
                         // NOTE(ameen): button-click events that cause UI changes have 1 frame delay to update.
@@ -349,6 +405,15 @@ sdl_event_loop(Milton* milton, PlatformState* platform)
 
                 if ( keycode == SDLK_SPACE ) {
                     platform->is_space_down = false;
+                    // Space release should immediately drop space-drag panning.
+                    // Only keep panning alive if a dedicated pan mouse button is held.
+                    const PanHardwareState hw = query_pan_hardware_state();
+                    platform->is_pan_button_down = hw.pan_button_down;
+                    if ( !hw.pan_button_down ) {
+                        platform->is_panning = false;
+                    }
+                    platform->waiting_for_pan_input = false;
+                    platform->force_next_frame = true;
                 }
                 shortcut_handle_key(milton, platform, &event, &milton_input, /*is_keyup*/true);
             } break;
@@ -744,8 +809,9 @@ milton_main(bool is_fullscreen, char* file_to_open)
             // Handle system cursor and platform state related to current_mode
             {
                     static b32 was_exporting = false;
-
-                    if ( platform.is_panning || platform.waiting_for_pan_input ) {
+                    const PanHardwareState pan_hw = query_pan_hardware_state();
+                    const b32 show_pan_cursor = platform.waiting_for_pan_input || pan_hw.pan_gesture_active;
+                    if ( show_pan_cursor ) {
                         cursor_set_and_show(platform.cursor_sizeall);
                     }
                     // Show resize icon
@@ -796,6 +862,7 @@ milton_main(bool is_fullscreen, char* file_to_open)
                     else if ( milton->current_mode != MiltonMode::PEN || milton->current_mode != MiltonMode::ERASER ) {
                         platform_cursor_hide();
                     }
+
                 }
         }
         // NOTE:

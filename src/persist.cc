@@ -932,6 +932,7 @@ milton_settings_load(MiltonSettings* settings)
                 }
             }
         }
+        fclose(fd);
     }
     if ( !ok ) {
         milton_log("Warning: Failed to read settings file\n");
@@ -956,6 +957,7 @@ void milton_settings_save(MiltonSettings* settings)
                 ok = true;
             }
         }
+        fclose(fd);
     }
     if ( !ok ) {
         milton_log("Warning: could not correctly save settings file\n");

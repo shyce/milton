@@ -53,6 +53,11 @@ apply_canvas_theme(Milton* milton, MiltonInput* input, v3f color)
 {
     milton_set_background_color(milton, color);
     milton->settings->background_color = color;
+    // Theme toggles are a user preference, persist immediately.
+    milton_settings_save(milton->settings);
+    // Also persist canvas metadata (including background color) right away so
+    // an immediate quit/reopen preserves the chosen theme.
+    input->flags |= (i32)MiltonInputFlags_SAVE_FILE;
     input->flags |= (i32)MiltonInputFlags_FULL_REFRESH;
 }
 
@@ -641,6 +646,8 @@ gui_menu(MiltonInput* input, PlatformState* platform, Milton* milton, b32& show_
                     if (ImGui::ColorEdit3(loc(TXT_color), bg.d))
                     {
                         milton_set_background_color(milton, clamp_01(bg));
+                        // Persist background edits on the active canvas immediately.
+                        input->flags |= (i32)MiltonInputFlags_SAVE_FILE;
                         input->flags |= (i32)MiltonInputFlags_FULL_REFRESH;
                     }
                     ImGui::EndMenu();
@@ -704,7 +711,12 @@ gui_menu(MiltonInput* input, PlatformState* platform, Milton* milton, b32& show_
                 // Panning
                 char* move_str = platform->is_panning==false? loc(TXT_move_canvas) : loc(TXT_stop_moving_canvas);
                 if ( ImGui::MenuItem(move_str) ) {
-                    platform->waiting_for_pan_input = true;
+                    if ( platform->is_panning || platform->waiting_for_pan_input ) {
+                        platform->is_panning = false;
+                        platform->waiting_for_pan_input = false;
+                    } else {
+                        platform->waiting_for_pan_input = true;
+                    }
                 }
                 // Eye Dropper
                 if ( ImGui::MenuItem(loc(TXT_eye_dropper)) ) {
@@ -798,7 +810,8 @@ milton_imgui_tick(MiltonInput* input, PlatformState* platform,  Milton* milton, 
 
     int color_stack = 0;
 
-    const b32 use_dark_ui = should_use_dark_ui(milton->view->background_color);
+    // UI theme follows the persisted theme preference, not ad-hoc canvas tint edits.
+    const b32 use_dark_ui = should_use_dark_ui(milton->settings->background_color);
     gpu_set_ui_theme_dark(milton->renderer, use_dark_ui);
 
     ImVec4 color_window_background = use_dark_ui ? ImVec4{0.14f, 0.16f, 0.20f, 0.98f}
@@ -1470,7 +1483,6 @@ picker_hits_wheel(ColorPicker* picker, v2f point)
     v2f center = v2i_to_v2f(picker->center);
     v2f arrow = point - center;
     float dist = magnitude(arrow);
-
     b32 hits = (dist <= picker->wheel_radius + picker->wheel_half_width ) &&
                (dist >= picker->wheel_radius - picker->wheel_half_width );
 

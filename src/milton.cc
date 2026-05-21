@@ -612,7 +612,8 @@ milton_get_brush_alpha(Milton const* milton)
 void
 settings_init(MiltonSettings* s)
 {
-    s->background_color = v3f{1,1,1};
+    // Keep a non-black dark default canvas theme.
+    s->background_color = v3f{0.09f, 0.11f, 0.14f};
     s->peek_out_increment = DEFAULT_PEEK_OUT_INCREMENT_LOG;
 }
 
@@ -1414,9 +1415,15 @@ milton_update_and_render(Milton* milton, MiltonInput const* input)
     b32 should_save =
             ((input->flags & MiltonInputFlags_OPEN_FILE)) ||
             ((input->flags & MiltonInputFlags_SAVE_FILE)) ||
-            ((input->flags & MiltonInputFlags_END_STROKE)) ||
             ((input->flags & MiltonInputFlags_UNDO)) ||
             ((input->flags & MiltonInputFlags_REDO));
+
+    // Only treat END_STROKE as save-worthy if there is an actual stroke.
+    // This avoids expensive/no-op saves triggered by UI clicks (e.g. File -> New).
+    if ( (input->flags & MiltonInputFlags_END_STROKE)
+         && milton->working_stroke.num_points > 0 ) {
+        should_save = true;
+    }
 
     if ( input->flags & MiltonInputFlags_OPEN_FILE ) {
         milton_load(milton);

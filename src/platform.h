@@ -51,7 +51,7 @@ struct PlatformState
 
     b32 is_space_down;
     b32 is_pointer_down;
-    b32 is_middle_button_down;
+    b32 is_pan_button_down;
 
     b32 is_panning;
     b32 was_panning;
