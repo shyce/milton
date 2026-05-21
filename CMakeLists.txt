@@ -9,9 +9,6 @@ if(APPLE)
   enable_language(OBJCXX)
   set(CMAKE_C_STANDARD 99)
   set(CMAKE_C_STANDARD_REQUIRED ON)
-  # SDL 2.0.8 enables this warning-as-error, which breaks modern AppleClang
-  # Objective-C sources in vendored SDL.
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=declaration-after-statement")
 endif()
 
 if(WIN32)
