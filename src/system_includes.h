@@ -4,6 +4,7 @@
 
 #pragma once
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 
 
@@ -26,9 +27,8 @@
 #endif
 
 
-// SDL
-#include <SDL.h>
-#include <SDL_syswm.h>
+#define SDL_DISABLE_OLD_NAMES
+#include <SDL3/SDL.h>
 
 // Platform independent includes:
 #include <errno.h>
@@ -41,8 +41,10 @@
 #include <string.h>
 #include <inttypes.h>
 
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
 #include <xmmintrin.h>
 #include <emmintrin.h>
+#endif
 
 #if defined(_WIN32)
 

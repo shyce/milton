@@ -1,5 +1,8 @@
 if exist OUTPUT goto OUTPUT_EXISTS
 
+cmake -P ..\cmake\generate_milton_iss.cmake
+if errorlevel 1 exit /b 1
+
 set builddir=build
 set sdlbindir=third_party\bin
 
@@ -7,8 +10,8 @@ mkdir OUTPUT
 copy %builddir%\Milton.exe OUTPUT\Milton.exe
 copy %builddir%\Milton.pdb OUTPUT\Milton.pdb
 copy Milton.iss OUTPUT\Milton.iss
-copy %sdlbindir%\SDL2.lib OUTPUT\SDL2.lib
-copy %sdlbindir%\SDL2.pdb OUTPUT\SDL2.pdb
+copy %sdlbindir%\SDL3.lib OUTPUT\SDL3.lib
+copy %sdlbindir%\SDL3.pdb OUTPUT\SDL3.pdb
 copy milton_icon.ico OUTPUT\milton_icon.ico
 copy LICENSE.txt OUTPUT\LICENSE.txt
 copy %builddir%\Carlito.LICENSE OUTPUT\Carlito.LICENSE

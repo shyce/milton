@@ -32,7 +32,7 @@ GET_DPI_FOR_MONITOR_PROC( GetDpiForMonitorStub )
 }
 
 void
-platform_init(PlatformState* platform, SDL_SysWMinfo* sysinfo)
+platform_init(PlatformState* platform)
 {
     platform->specific = (PlatformSpecific*)platform_allocate(sizeof(PlatformSpecific));
     platform->specific->win_dpi_api = (WinDpiApi*)mlt_calloc(1, sizeof(WinDpiApi), "Setup");
@@ -40,10 +40,13 @@ platform_init(PlatformState* platform, SDL_SysWMinfo* sysinfo)
 
     platform->specific->win_dpi_api->SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
 
-    mlt_assert(sysinfo->subsystem == SDL_SYSWM_WINDOWS);
-
     // Handle the case where the window was too big for the screen.
-    HWND hwnd = sysinfo->info.win.window;
+    HWND hwnd = NULL;
+    SDL_PropertiesID props = SDL_GetWindowProperties(platform->window);
+    if (props != 0) {
+        hwnd = (HWND)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+    }
+    mlt_assert(hwnd != NULL);
     // TODO: Fullscreen
     // if (!is_fullscreen) {
     {
@@ -222,18 +225,6 @@ platform_setup_cursor(Arena* arena, PlatformState* platform)
     }
     mlt_assert(platform->cursor_brush != NULL);
 #endif  // MILTON_HARDWARE_BRUSH_CURSOR
-}
-
-EasyTabResult
-platform_handle_sysevent(PlatformState* platform, SDL_SysWMEvent* sysevent)
-{
-    EasyTabResult res = EASYTAB_EVENT_NOT_HANDLED;
-    mlt_assert(sysevent->msg->subsystem == SDL_SYSWM_WINDOWS);
-    res = EasyTab_HandleEvent(sysevent->msg->msg.win.hwnd,
-                              sysevent->msg->msg.win.msg,
-                              sysevent->msg->msg.win.lParam,
-                              sysevent->msg->msg.win.wParam);
-    return res;
 }
 
 void
@@ -804,8 +795,8 @@ perf_count_to_sec(u64 counter)
 void
 platform_cursor_hide()
 {
-    while ( SDL_ShowCursor(-1) == SDL_ENABLE )  {
-        SDL_ShowCursor(SDL_DISABLE);
+    while ( SDL_CursorVisible() )  {
+        SDL_HideCursor();
     }
     while ( ShowCursor(FALSE) >=  0 );
 }
@@ -813,8 +804,8 @@ platform_cursor_hide()
 void
 platform_cursor_show()
 {
-    while ( SDL_ShowCursor(-1) == SDL_DISABLE )  {
-        SDL_ShowCursor(SDL_ENABLE);
+    while ( !SDL_CursorVisible() )  {
+        SDL_ShowCursor();
     }
 
     while ( ShowCursor(TRUE) < 0 );
@@ -829,8 +820,7 @@ platform_cursor_set_position(PlatformState* platform, v2i pos)
     SetCursorPos(pos.x, pos.y);
 
     // Pending mouse move events will have the cursor close to where it was before we set it.
-    SDL_FlushEvent(SDL_MOUSEMOTION);
-    SDL_FlushEvent(SDL_SYSWMEVENT);
+    SDL_FlushEvent(SDL_EVENT_MOUSE_MOTION);
 }
 
 v2i

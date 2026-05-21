@@ -1,6 +1,25 @@
 cmake_minimum_required(VERSION 3.1)
 project(Milton)
 
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/MiltonVersion.cmake)
+milton_read_version_from_header(${CMAKE_CURRENT_LIST_DIR}/src/milton_configuration.h)
+message(STATUS "Milton version: ${MILTON_VERSION}")
+
+configure_file(
+  ${CMAKE_CURRENT_LIST_DIR}/Milton.iss.in
+  ${CMAKE_CURRENT_LIST_DIR}/Milton.iss
+  @ONLY)
+
+if(APPLE AND NOT DEFINED CMAKE_OSX_ARCHITECTURES)
+  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build universal binaries by default")
+endif()
+
+if(APPLE)
+  enable_language(OBJCXX)
+  set(CMAKE_C_STANDARD 99)
+  set(CMAKE_C_STANDARD_REQUIRED ON)
+endif()
+
 if(WIN32)
   set(DIRECTX 0)
 endif()
@@ -10,7 +29,7 @@ add_executable(shadergen
   src/shadergen.cc
 )
 
-set(SDL2DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL2-2.0.8)
+set(SDL3DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL3-3.4.4)
 
 FILE (GLOB ShaderSources src/*.glsl third_party/*.glsl)
 
@@ -62,7 +81,7 @@ if(UNIX)
     #-Werror
     )
   if (APPLE)
-      set(UnixCFlags "${UnixCFlags}" -ObjC++)
+      set_source_files_properties(src/unity.cc PROPERTIES LANGUAGE OBJCXX)
   endif()
 
   target_compile_options(shadergen PRIVATE
@@ -70,6 +89,38 @@ if(UNIX)
   target_compile_options(Milton PRIVATE
     ${UnixCFlags})
 endif()
+
+set(MILTON_RUNTIME_ASSETS
+  ${CMAKE_CURRENT_LIST_DIR}/third_party/Carlito.ttf
+  ${CMAKE_CURRENT_LIST_DIR}/third_party/Carlito.LICENSE
+)
+
+if(WIN32)
+  list(APPEND MILTON_RUNTIME_ASSETS ${CMAKE_CURRENT_LIST_DIR}/milton_icon.ico)
+endif()
+
+if(APPLE)
+  set(MILTON_MACOS_ICON "${CMAKE_CURRENT_LIST_DIR}/milton_icon.icns")
+
+  # Make bundled builds load runtime files from Contents/Resources.
+  target_sources(Milton PRIVATE ${MILTON_RUNTIME_ASSETS} ${MILTON_MACOS_ICON})
+  set_source_files_properties(${MILTON_RUNTIME_ASSETS} ${MILTON_MACOS_ICON} PROPERTIES
+    MACOSX_PACKAGE_LOCATION Resources
+  )
+
+  set_target_properties(Milton PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_NAME "Milton"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.serge-rgb.milton"
+    MACOSX_BUNDLE_ICON_FILE milton_icon.icns
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${MILTON_VERSION}"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${MILTON_VERSION}"
+  )
+endif()
+
+set(SDL_SHARED OFF CACHE BOOL "Build SDL shared library" FORCE)
+set(SDL_STATIC ON CACHE BOOL "Build SDL static library" FORCE)
+set(SDL_TEST_LIBRARY OFF CACHE BOOL "Build SDL test library" FORCE)
+add_subdirectory(${SDL3DIR})
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 
@@ -98,7 +149,6 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   target_include_directories(Milton PRIVATE
     ${GTK2_INCLUDE_DIRS}
     ${X11_INCLUDE_DIR}
-    ${SDL2DIR}/build/linux64/include/SDL2
     ${OPENGL_INCLUDE_DIR}
   )
 
@@ -107,15 +157,13 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${X11_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${XINPUT_LIBRARY}
-    ${SDL2DIR}/build/linux64/lib/libSDL2maind.a
-    ${SDL2DIR}/build/linux64/lib/libSDL2d.a
+    SDL3::SDL3
     ${CMAKE_THREAD_LIBS_INIT}
     ${CMAKE_DL_LIBS}
     )
 
 else()
-  add_subdirectory(${SDL2DIR})
-  target_link_libraries(Milton SDL2-static)
+  target_link_libraries(Milton SDL3::SDL3)
 endif()
 
 if(APPLE)
@@ -127,15 +175,13 @@ endif()
 
 if(WIN32 OR APPLE)
   target_include_directories(Milton PRIVATE
-    ${SDL2DIR}/include
+    ${SDL3DIR}/include
   )
 endif()
 
 add_custom_command(TARGET Milton POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy
-    ${CMAKE_CURRENT_LIST_DIR}/milton_icon.ico
-    ${CMAKE_CURRENT_LIST_DIR}/third_party/Carlito.ttf
-    ${CMAKE_CURRENT_LIST_DIR}/third_party/Carlito.LICENSE
+    ${MILTON_RUNTIME_ASSETS}
     $<TARGET_FILE_DIR:Milton>
 )
 

@@ -13,8 +13,10 @@ main()
 {
     float r = length(v_sizes);
 
-    float girth = u_fill ? 2.0 : 1.0;
-    const float ring_alpha = 0.4;
+    // Make preview ring high-contrast and thicker so it remains visible
+    // against both light and dark backgrounds.
+    float girth = u_fill ? 3.0 : 2.0;
+    const float ring_alpha = 0.9;
 
     if ( r <= u_radius
          && r > u_radius - girth ) {

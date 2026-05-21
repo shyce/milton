@@ -56,6 +56,7 @@ void gpu_update_picker(RenderBackend* renderer, ColorPicker* picker);
 void gpu_update_scale(RenderBackend* renderer, i32 scale);
 void gpu_update_export_rect(RenderBackend* renderer, Exporter* exporter);
 void gpu_update_background(RenderBackend* renderer, v3f background_color);
+void gpu_set_ui_theme_dark(RenderBackend* renderer, b32 dark_theme);
 void gpu_update_canvas(RenderBackend* renderer, CanvasState* canvas, CanvasView* view);
 
 void gpu_get_viewport_limits(RenderBackend* renderer, float* out_viewport_limits);

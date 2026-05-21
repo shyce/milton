@@ -63,13 +63,41 @@ This repo provides a binary SDL.lib that was compiled by running
 Linux and macOS
 ---------------
 
-As of 2018-10-24, linux and mac are not officially supported. I (Sergio) would like to support them again but my efforts are currently going into producing a new release for Windows. You can try and compile with the included scripts, but things will likely not work!
+Linux support is community-maintained. macOS source builds and app bundles are supported with the script below.
 
-On 2021-02-27 a successful build for Linux can be done with these steps:
+### Build on macOS (universal)
 
-While in the milton top directory
+From the repository root:
 ```
-cd third_party/SDL2-2.0.8
+./build-mac.sh
+```
+
+By default this builds a universal app (`arm64;x86_64`) in Debug mode:
+- `build/macrelease/Milton.app`
+- `build/macrelease/Milton.app/Contents/MacOS/Milton`
+
+Optional overrides:
+```
+BUILD_TYPE=Release ./build-mac.sh
+MILTON_MAC_ARCHS=arm64 ./build-mac.sh
+```
+
+To run the bundle:
+```
+open build/macrelease/Milton.app
+```
+
+Notes:
+- Milton currently uses OpenGL; modern macOS systems with OpenGL compatibility are required.
+- Runtime assets are bundled into `Milton.app/Contents/Resources`.
+
+### Build on Linux
+
+On 2021-02-27 a successful Linux build was reported with these steps.
+
+While in the milton top directory:
+```
+cd third_party/SDL3-3.4.4
 mkdir build
 cd build
 cmake -DVIDEO_WAYLAND=OFF -DCMAKE_INSTALL_PREFIX=linux64 -DCMAKE_BUILD_TYPE=Debug ../
@@ -77,7 +105,7 @@ make
 make install
 ```
 
-and then in the milton top directory, so ```cd ../../../```,
+And then in the milton top directory, so `cd ../../../`:
 ```
 mkdir build
 cd build
@@ -85,7 +113,7 @@ cmake ../
 make
 ```
 
-And if successful, you should have an executable called "Milton" that runs.
+If successful, you should have an executable called `Milton` that runs.
 
 I did not make this work automatically with CMake, because I don't know CMake.
 

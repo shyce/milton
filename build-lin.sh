@@ -4,11 +4,11 @@ MYDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $MYDIR
 
 # Build and install the cmake static library and headers into a subdirectory
-# Specifically: third_party/SDL2-2.0.3/build/linux64/{lib,include}
+# Specifically: third_party/SDL3-3.4.4/build/linux64/{lib,include}
 #
 # This really should become an ExternalProject_Add inside the CMakelists.txt
 # and windows, linux, and osx should all use the same approach for building cmake.
-pushd third_party/SDL2-2.0.8
+pushd third_party/SDL3-3.4.4
     CMAKE_CMD='cmake
     -D ARTS:BOOL=OFF
     -D ALSA:BOOL=OFF
@@ -16,6 +16,9 @@ pushd third_party/SDL2-2.0.8
     -D OSS:BOOL=OFF
     -D ESD:BOOL=OFF
     -D SDL_SHARED:BOOL=OFF
+    -D SDL_TESTS:BOOL=OFF
+    -D SDL_EXAMPLES:BOOL=OFF
+    -D SDL_INSTALL_TESTS:BOOL=OFF
     -D CMAKE_INSTALL_PREFIX="../linux64"
     -G "Unix Makefiles"
     -D CMAKE_DEBUG_POSTFIX="_debug"

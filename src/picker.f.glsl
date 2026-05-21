@@ -13,6 +13,7 @@ uniform float u_angle;
 uniform vec2 u_triangle_point;
 
 uniform vec4 u_colors[5]; // Colors for picker buttons.
+uniform int u_theme_dark;
 
 uniform vec2 u_screen_size;
 
@@ -120,7 +121,9 @@ main()
     /* vec2 screen_point = vec2(gl_FragCoord.x, u_screen_size.y-gl_FragCoord.y); */
     /* vec2 coord = screen_point / u_screen_size; */
     /* coord.y = 1-coord.y; */
-    vec4 color = vec4(0.5, 0.5, 0.55, 0.6);
+    vec4 color = (u_theme_dark == 1)
+        ? vec4(0.18, 0.20, 0.24, 0.85)
+        : vec4(0.5, 0.5, 0.55, 0.6);
 
     float dist = distance(vec2(0), v_norm);
     // Wheel and triangle
@@ -130,7 +133,7 @@ main()
 
     float dist_to_preview = distance(preview_center, v_norm);
     if ( dist_to_preview < preview_radius ) {
-        color = vec4(0,0,0,1);
+        color = (u_theme_dark == 1) ? vec4(1,1,1,1) : vec4(0,0,0,1);
         const float epsilon = 0.02;
         if ( dist_to_preview < preview_radius - epsilon ) {
             color = vec4(u_color, 1);
@@ -184,7 +187,7 @@ main()
              || (h < 4 + epsilon2 && h > 4 - epsilon2)
              || (h < 5 + epsilon2 && h > 5 - epsilon2)
              || (h < 6 + epsilon2 && h > 6 - epsilon2) ) {
-            color = vec4(0,0,0,1);
+            color = (u_theme_dark == 1) ? vec4(0.85, 0.88, 0.93, 1) : vec4(0,0,0,1);
         }
     }
 

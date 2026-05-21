@@ -34,19 +34,15 @@ perf_counter()
 }
 
 void
-platform_init(PlatformState* platform, SDL_SysWMinfo* sysinfo)
+platform_init(PlatformState* platform)
 {
-    mlt_assert(sysinfo->subsystem == SDL_SYSWM_X11);
     gtk_init(NULL, NULL);
-    EasyTab_Load(sysinfo->info.x11.display, sysinfo->info.x11.window);
-}
-
-EasyTabResult
-platform_handle_sysevent(PlatformState* platform, SDL_SysWMEvent* sysevent)
-{
-    mlt_assert(sysevent->msg->subsystem == SDL_SYSWM_X11);
-    EasyTabResult res = EasyTab_HandleEvent(&sysevent->msg->msg.x11.event);
-    return res;
+    SDL_PropertiesID props = SDL_GetWindowProperties(platform->window);
+    void* x11_display = (props != 0) ? SDL_GetPointerProperty(props, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL) : NULL;
+    unsigned long x11_window = (unsigned long)((props != 0) ? SDL_GetNumberProperty(props, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0) : 0);
+    if (x11_display != NULL && x11_window != 0) {
+        EasyTab_Load((Display*)x11_display, (Window)x11_window);
+    }
 }
 
 void
@@ -374,9 +370,12 @@ platform_setup_cursor(Arena* arena, PlatformState* platform)
 v2i
 platform_cursor_get_position(PlatformState* platform)
 {
-    v2i pos;
-
-    SDL_GetMouseState(&pos.x, &pos.y);
+    v2i pos = {};
+    float x = 0.0f;
+    float y = 0.0f;
+    SDL_GetMouseState(&x, &y);
+    pos.x = (int)x;
+    pos.y = (int)y;
     return pos;
 }
 
@@ -386,6 +385,5 @@ platform_cursor_set_position(PlatformState* platform, v2i pos)
     SDL_WarpMouseInWindow(platform->window, pos.x, pos.y);
     // Pending mouse move events will have the cursor close
     // to where it was before we set it.
-    SDL_FlushEvent(SDL_MOUSEMOTION);
-    SDL_FlushEvent(SDL_SYSWMEVENT);
+    SDL_FlushEvent(SDL_EVENT_MOUSE_MOTION);
 }

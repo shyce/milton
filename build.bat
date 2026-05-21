@@ -8,7 +8,7 @@ set platform=x64
 if "%1"=="x86" set platform=x86
 
 set warnFlags=-FC
-set includeFlags=-I..\third_party\SDL2-2.0.8\include -I..\third_party\imgui\ -I..\third_party
+set includeFlags=-I..\third_party\SDL3-3.4.4\include -I..\third_party\imgui\ -I..\third_party
 
 if not exist build mkdir build
 pushd build
@@ -27,12 +27,12 @@ pushd build
          copy ..\Milton.rc Milton.rc
          rc Milton.rc
 
-set compiler_flags=/O2 /MTd /Zi %includeFlags% %warnFlags% /Femilton.exe /wd4217 /link ..\third_party\bin\%platform%\SDL2.lib OpenGL32.lib gdi32.lib shell32.lib comdlg32.lib ole32.lib oleAut32.lib winmm.lib advapi32.lib version.lib
+set compiler_flags=/O2 /MTd /Zi %includeFlags% %warnFlags% /Femilton.exe /wd4217 /link ..\third_party\bin\%platform%\SDL3.lib OpenGL32.lib gdi32.lib shell32.lib comdlg32.lib ole32.lib oleAut32.lib winmm.lib advapi32.lib version.lib
 
 if "%1"=="test" (
    cl ..\src\unity_tests.cc %compiler_flags /SUBSYSTEM:Console
 ) else (
    cl Milton.res ..\src\unity.cc %compiler_flags%
 )
-:: ..\third_party\bin\%platform%\SDL2.lib
+:: ..\third_party\bin\%platform%\SDL3.lib
 popd
