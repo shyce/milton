@@ -25,12 +25,12 @@ struct RenderStack
     u32*    canvas_buffer;
 
     // LIFO work queue
-    SDL_mutex*              mutex;
+    SDL_Mutex*              mutex;
     BlockgroupRenderBackend    blockgroup_render_data[RENDER_STACK_SIZE];
     i32                     index;
 
-    SDL_sem*   work_available;
-    SDL_sem*   completed_semaphore;
+    SDL_Semaphore*   work_available;
+    SDL_Semaphore*   completed_semaphore;
 };
 
 

@@ -58,6 +58,7 @@
     X(GLenum,   glCheckFramebufferStatusEXT, GLenum target)                                       \
     X(GLuint,   glCreateProgram,          void)                                                   \
     X(void,     glBindBuffer,             GLenum target, GLuint buffer)                           \
+    X(void,     glBindSampler,            GLuint unit, GLuint sampler)                            \
     X(void,     glBindVertexArray,        GLuint array)                                           \
     X(void,     glGenBuffers,             GLsizei n, GLuint *buffers)                             \
     X(void,     glGenVertexArrays,        GLsizei n, GLuint* arrays)                              \
@@ -67,6 +68,7 @@
     X(void,     glBlendEquation,          GLenum mode)                                            \
     X(void,     glBlendEquationSeparate,  GLenum modeRGB, GLenum modeAlpha)                       \
     X(void,     glBlendFunc,              GLenum source, GLenum dest) \
+    X(void,     glBlendFuncSeparate,      GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha) \
     X(void,     glBlitFramebufferEXT,     GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter) \
     X(void,     glClear,                  GLbitfield mask) \
     X(void,     glClearColor, GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)\
@@ -78,12 +80,15 @@
     X(void,     glDisable,                GLenum cap) \
     X(void,     glDrawArrays, GLenum mode, GLint first, GLsizei count)\
     X(void,     glDrawElements,           GLenum mode, GLsizei count, GLenum type, const void *indices)\
+    X(void,     glDrawElementsBaseVertex, GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex)\
     X(void,     glEnableVertexAttribArray, GLuint index)                                          \
+    X(void,     glBufferSubData,          GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid *data)\
     X(void,     glPixelStorei,            GLenum pname, GLint param)\
     X(void,     glReadPixels,             GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, void *pixels)\
     X(void,     glScissor,                GLint x, GLint y, GLsizei width, GLsizei height) \
     X(void,     glUniformMatrix4fv,       GLint location, GLsizei count, GLboolean transpose, const GLfloat* value) \
     X(void,     glVertexAttribPointer,    GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, GLvoid *pointer) \
+    X(void,     glTexSubImage2D,          GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *pixels) \
     X(void,     glViewport,               GLint x, GLint y, GLsizei width, GLsizei height)\
     X(void,     glDetachShader,           GLuint program, GLuint shader)                          \
     X(void,     glDeleteProgram,          GLuint program)                                         \

@@ -734,6 +734,9 @@ milton_init(Milton* milton, i32 width, i32 height, f32 ui_scale, PATH_CHAR* file
     milton->persist->last_save_time = {};
     // Note: This will fill out uninitialized data like default layers.
     if (read_from_disk) { milton_load(milton); }
+    // Treat startup state as already saved to avoid unnecessary write-on-quit
+    // when the user has not made any edits.
+    milton->persist->last_save_stroke_count = layer::count_strokes(milton->canvas->root_layer);
 
     milton_validate(milton);
 
@@ -757,7 +760,7 @@ milton_init(Milton* milton, i32 width, i32 height, f32 ui_scale, PATH_CHAR* file
 
 #if MILTON_SAVE_ASYNC
     milton->save_mutex = SDL_CreateMutex();
-    milton->save_cond = SDL_CreateCond();
+    milton->save_cond = SDL_CreateCondition();
     milton->save_thread = SDL_CreateThread(milton_save_thread, "Save thread", (void*)milton);
 #endif
 }
@@ -926,6 +929,7 @@ milton_save_postlude(Milton* milton)
     p->last_save_stroke_count = layer::count_strokes(milton->canvas->root_layer);
 
     milton->flags &= ~MiltonStateFlags_LAST_SAVE_FAILED;
+    milton->flags &= ~MiltonStateFlags_MOVE_FILE_FAILED;
 }
 
 #if MILTON_SAVE_ASYNC
@@ -948,7 +952,7 @@ milton_kill_save_thread(Milton* milton)
 
     // Do a save tick.
     SDL_LockMutex(milton->save_mutex);
-    SDL_CondSignal(milton->save_cond);
+    SDL_SignalCondition(milton->save_cond);
     SDL_UnlockMutex(milton->save_mutex);
 
     SDL_WaitThread(milton->save_thread, NULL);
@@ -968,7 +972,7 @@ milton_save_thread(void* state_)
         bool do_save = false;
         SDL_LockMutex(milton->save_mutex);
 
-        SDL_CondWait(milton->save_cond, milton->save_mutex); // Wait for a frame tick.
+        SDL_WaitCondition(milton->save_cond, milton->save_mutex); // Wait for a frame tick.
 
         if ( milton->save_flag == SaveEnum_KILL ) {
             running = false;
@@ -1404,6 +1408,9 @@ milton_update_and_render(Milton* milton, MiltonInput const* input)
 
     b32 draw_custom_rectangle = false;  // Custom rectangle used for new strokes, undo/redo.
 
+    i64 stroke_count = layer::count_strokes(milton->canvas->root_layer);
+    b32 has_unsaved_changes = (milton->persist->last_save_stroke_count != stroke_count);
+
     b32 should_save =
             ((input->flags & MiltonInputFlags_OPEN_FILE)) ||
             ((input->flags & MiltonInputFlags_SAVE_FILE)) ||
@@ -1413,6 +1420,7 @@ milton_update_and_render(Milton* milton, MiltonInput const* input)
 
     if ( input->flags & MiltonInputFlags_OPEN_FILE ) {
         milton_load(milton);
+        milton->persist->last_save_stroke_count = layer::count_strokes(milton->canvas->root_layer);
         upload_gui(milton);
         milton->render_settings.do_full_redraw = true;
     }
@@ -1769,8 +1777,9 @@ milton_update_and_render(Milton* milton, MiltonInput const* input)
     PROFILE_GRAPH_END(update);
 
     if ( !(milton->flags & MiltonStateFlags_RUNNING) ) {
-        // Someone tried to kill milton from outside the update. Make sure we save.
-        should_save = true;
+        // Someone tried to kill milton from outside the update. Save only if
+        // there are unsaved edits.
+        should_save = should_save || has_unsaved_changes;
         // Don't want to leave the system with the cursor hidden.
         platform_cursor_show();
     }
@@ -1793,8 +1802,7 @@ milton_update_and_render(Milton* milton, MiltonInput const* input)
              && milton->persist->last_save_stroke_count != layer::count_strokes(milton->canvas->root_layer) ) {
             // TODO: Stop using MoveFileEx?
             //  Why does MoveFileEx fail? Ask someone who knows this stuff.
-            // Wait a moment and try again. If this fails, prompt to save somewhere else.
-            SDL_Delay(3000);
+            // Retry immediately to keep shutdown responsive.
             milton_save(milton);
 
             if (    (milton->flags & MiltonStateFlags_LAST_SAVE_FAILED)
@@ -1840,7 +1848,7 @@ milton_update_and_render(Milton* milton, MiltonInput const* input)
 
 #if MILTON_SAVE_ASYNC
     SDL_LockMutex(milton->save_mutex);
-    SDL_CondSignal(milton->save_cond);
+    SDL_SignalCondition(milton->save_cond);
     SDL_UnlockMutex(milton->save_mutex);
 #endif
 

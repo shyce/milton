@@ -178,9 +178,9 @@ struct Milton
     i32 max_height;
 
 #if MILTON_SAVE_ASYNC
-    SDL_mutex*  save_mutex;
+    SDL_Mutex*  save_mutex;
     i64         save_flag;   // See SaveEnum
-    SDL_cond*   save_cond;
+    SDL_Condition*   save_cond;
     SDL_Thread* save_thread;
 #endif
     PlatformState* platform;

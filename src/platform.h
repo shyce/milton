@@ -103,7 +103,7 @@ typedef struct TabletState_s TabletState;
 
 int milton_main(bool is_fullscreen, char* file_to_open);
 
-void    platform_init(PlatformState* platform, SDL_SysWMinfo* sysinfo);
+void    platform_init(PlatformState* platform);
 void    platform_deinit(PlatformState* platform);
 
 void    platform_setup_cursor(Arena* arena, PlatformState* platform);
@@ -112,7 +112,6 @@ void    platform_cursor_set_position(PlatformState* platform, v2i pos);
 // Get cursor position in client-rect space, whether or not it is within the client rect.
 v2i     platform_cursor_get_position(PlatformState* platform);
 
-EasyTabResult platform_handle_sysevent(PlatformState* platform, SDL_SysWMEvent* sysevent);
 void          platform_event_tick();
 
 void*   platform_allocate(size_t size);

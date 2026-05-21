@@ -102,10 +102,8 @@ platform_deallocate_internal(void** ptr)
 void
 platform_cursor_hide()
 {
-    int shown = SDL_ShowCursor(-1);
-    if ( shown ) {
-        int res = SDL_ShowCursor(0);
-        if ( res < 0 ) {
+    if ( SDL_CursorVisible() ) {
+        if ( !SDL_HideCursor() ) {
             INVALID_CODE_PATH;
         }
     }
@@ -122,9 +120,8 @@ str_to_path_char(char* str, PATH_CHAR* out, size_t out_sz)
 void
 platform_cursor_show()
 {
-    int shown = SDL_ShowCursor(-1);
-    if ( !shown ) {
-        SDL_ShowCursor(1);
+    if ( !SDL_CursorVisible() ) {
+        SDL_ShowCursor();
     }
 }
 
